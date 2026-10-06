@@ -77,7 +77,7 @@ on staging does not write staging's hosts into `config/sync`.
   has no npm. Node runs nothing beside the site.
 - **A copy's search index starts stale.** The sanitisation marks everything for
   re-indexing, and the `search-index` cron works through it.
-- **Variables to set in the console:** `REMBG_TOKEN`, for the extra.
+- **Variables to set in the console:** `RELAY_PASSWORD`, the mail provider's key, as a secret; `REMBG_TOKEN`, for the extra.
 - More on each part: [`../varnish/`](../varnish/) for cache rules,
   [`../extras/`](../extras/) for the extra machine.
 
@@ -152,7 +152,9 @@ Written by the platform into every container of this environment — read them, 
 
 | Variable | What it is |
 |---|---|
-| `SMTP_HOST` | The mail relay, when the stack runs one. Port 25 from inside the stack; the relay is what talks to the outside world. |
+| `SMTP_HOST` | The mail relay. Port 25 from inside the stack, unauthenticated; the relay is what talks to the outside world, through the provider set as its `RELAY_HOST` on port 587 — direct delivery on port 25 is blocked by most cloud providers. |
+
+The relay's provider is the `opensmtpd` entry under `services` in `vallic.yaml`; set its password as a secret variable, `RELAY_PASSWORD`, in the console. See [OpenSMTPD](https://docs.vallic.com/stack-opensmtpd).
 
 ### Extra machine — voyager
 

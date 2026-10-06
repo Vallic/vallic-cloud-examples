@@ -37,6 +37,16 @@ services:
         VARNISHD_PARAM_DEFAULT_TTL: '300'
   # Only for the theme build; nothing of it runs beside the site.
   - node: '24'
+  # Outbound mail. Every stack runs the relay; this tells it which provider to
+  # send through, over STARTTLS on 587 — straight delivery on port 25 is
+  # blocked by most cloud providers, so without a relay host mail never leaves.
+  # SendGrid shown; RELAY_PASSWORD is a secret variable in the console.
+  - opensmtpd:
+      version: '7.8'
+      environment:
+        RELAY_HOST: smtp.sendgrid.net
+        RELAY_PORT: '587'
+        RELAY_USER: apikey
 
 build:
   # What Composer installs, kept for the next build. Composer's and npm's

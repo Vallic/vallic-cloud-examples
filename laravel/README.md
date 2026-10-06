@@ -64,6 +64,7 @@ public files directory, so point the `public` disk there:
 | `APP_KEY` | Unless derived from `VALLIC_ENTROPY`, above |
 | `APP_ENV` | `production` |
 | `LOG_CHANNEL` | `daily` |
+| `RELAY_PASSWORD` | Your mail provider's password or API key, as a secret — for the `opensmtpd` relay in `vallic.yaml` |
 | `CACHE_STORE`, `SESSION_DRIVER` | `redis` — required once there is more than one web server |
 
 ## Notes
@@ -128,7 +129,9 @@ Written by the platform into every container of this environment — read them, 
 
 | Variable | What it is |
 |---|---|
-| `SMTP_HOST` | The mail relay, when the stack runs one. Port 25 from inside the stack; the relay is what talks to the outside world. |
+| `SMTP_HOST` | The mail relay. Port 25 from inside the stack, unauthenticated; the relay is what talks to the outside world, through the provider set as its `RELAY_HOST` on port 587 — direct delivery on port 25 is blocked by most cloud providers. |
+
+The relay's provider is the `opensmtpd` entry under `services` in `vallic.yaml`; set its password as a secret variable, `RELAY_PASSWORD`, in the console. See [OpenSMTPD](https://docs.vallic.com/stack-opensmtpd).
 
 ### Files
 

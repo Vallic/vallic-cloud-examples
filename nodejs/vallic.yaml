@@ -15,6 +15,16 @@ services:
   # created with. Valkey starts on the next deploy if it is not running yet.
   - postgres: '18'
   - valkey: '8'
+  # Outbound mail. Every stack runs the relay; this tells it which provider to
+  # send through, over STARTTLS on 587 — straight delivery on port 25 is
+  # blocked by most cloud providers, so without a relay host mail never leaves.
+  # SendGrid shown; RELAY_PASSWORD is a secret variable in the console.
+  - opensmtpd:
+      version: '7.8'
+      environment:
+        RELAY_HOST: smtp.sendgrid.net
+        RELAY_PORT: '587'
+        RELAY_USER: apikey
 
 build:
   # npm's download cache is provided. node_modules is the runtime, so the

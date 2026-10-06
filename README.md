@@ -49,6 +49,13 @@ A `services` entry starts a cache or a search engine on the next deploy, but
 the database it names has to be the one the environment was created with. See
 [vallic.yaml](https://docs.vallic.com/configuration).
 
+**Mail leaves through a provider.** Every stack runs an OpenSMTPD relay your
+application sends to on port 25, inside the stack. Every example names a
+provider for it under `services` — SendGrid, over STARTTLS on 587 — because
+straight delivery on port 25 is blocked by most cloud providers, and without a
+relay host mail never leaves. Put your provider there, and its password in the
+console as `RELAY_PASSWORD`. See [OpenSMTPD](https://docs.vallic.com/stack-opensmtpd).
+
 **Credentials never go in the repository.** Every example reads them from the
 environment the platform writes — the full list is in
 [Variables](https://docs.vallic.com/variables). A variable your application
