@@ -147,10 +147,18 @@ if (getenv('REDIS_HOST')
   // And the container itself chained the same way, which core cannot do for
   // it: the definition is a megabyte or so, read on every request, and from
   // APCu that is a local read where from Redis it is a fetch and an
-  // unserialise. Redis stays authoritative, so a `drush cr` — a separate
-  // process with an APCu of its own — still reaches the web server. Only
-  // where APCu is on; the CLI usually has it off.
-  if (function_exists('apcu_enabled') && apcu_enabled()) {
+  // unserialise. Redis stays authoritative.
+  //
+  // Wherever the APCu functions exist — not only where APCu is on — as core
+  // decides for its own chained bins. The CLI usually has APCu off, and
+  // drush is what rebuilds the container on a deploy. Chained, its write
+  // moves the bin's last-write timestamp in Redis, which is what makes every
+  // web server drop the copy in its own APCu; the fast half simply misses
+  // and stores nothing. Left plain on the CLI, drush wrote to Redis alone,
+  // the web servers went on running the container from before the deploy,
+  // and rebuilt plugin definitions with modules the deploy had just
+  // uninstalled — a search that failed days later, when APCu was emptied.
+  if (function_exists('apcu_fetch')) {
     $settings['bootstrap_container_definition']['services'] += [
       'cache.container.consistent' => $settings['bootstrap_container_definition']['services']['cache.container'],
       'cache.container.fast' => [
