@@ -1,0 +1,21 @@
+# What running or checking an example leaves behind. None of it is part of
+# an example.
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+.next/
+
+# PHP
+vendor/
+
+# Go: the binaries the build writes
+/go/bin/
+
+# Editors and systems
+.idea/
+.vscode/
+.DS_Store
