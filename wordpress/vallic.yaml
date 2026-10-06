@@ -1,0 +1,39 @@
+# WordPress in the classic layout: wp-config.php and WordPress itself at the
+# root of the repository, beside this file. The document root is the root.
+#
+# https://docs.vallic.com/framework-wordpress
+# https://docs.vallic.com/configuration
+version: 1
+type: wordpress
+
+runtime:
+  php: '8.4'
+
+services:
+  # Checked, not obeyed: the database has to be the one the environment was
+  # created with. Valkey starts on the next deploy if it is not running yet.
+  - mariadb: '11.8'
+  - valkey: '8'
+
+build:
+  # What Composer installs, kept for the next build.
+  cache:
+    - vendor
+  steps:
+    - composer install --no-dev --optimize-autoloader
+    # wp-cli, versioned with the project rather than baked into the image. The
+    # platform runs it hourly for cron and after a restore, so keep this step
+    # even if you never run wp yourself. bin/ is on every PHP container's PATH.
+    - 'mkdir -p bin && curl -fsSL -o bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && chmod +x bin/wp'
+
+# WordPress's own cron fires on visitor requests; wp-config.php turns that off
+# and this runs it instead. Declaring any cron replaces the platform's hourly
+# run, so it is named here — every five minutes.
+cron:
+  - name: wp-cron
+    schedule: '*/5 * * * *'
+    command: 'wp cron event run --due-now'
+
+health:
+  path: /
+  timeout: 60

@@ -1,0 +1,21 @@
+# Runs in the application container, in order, right after a database arrives
+# in this environment — copied from another one, or restored from a backup —
+# and before anyone can reach it. The first command to fail stops the rest and
+# fails the task. Never runs on production.
+#
+# Without this file nothing is scrubbed: production's data lands as it was.
+# These assume the default `wp_` table prefix; change it if yours differs.
+#
+# https://docs.vallic.com/backup-storage#sanitising-what-arrives
+commands:
+  # Every account but the first gets an address nobody receives mail at.
+  - 'wp db query "UPDATE wp_users SET user_email = CONCAT(''user'', ID, ''@example.test'') WHERE ID > 1"'
+  # Comment authors are people too.
+  - 'wp db query "UPDATE wp_comments SET comment_author_email = CONCAT(''comment'', comment_ID, ''@example.test''), comment_author_IP = ''''"'
+  - 'wp option update admin_email admin@example.test'
+  # Keep a copy of production out of search engines.
+  - 'wp option update blog_public 0'
+  # WooCommerce keeps orders in its own tables; scrub them too, for example:
+  # - 'wp db query "UPDATE wp_wc_orders SET billing_email = CONCAT(''order'', id, ''@example.test'')"'
+  # Nothing cached from the data that was there before.
+  - 'wp cache flush'

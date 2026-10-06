@@ -1,0 +1,44 @@
+# A PHP application without a framework of ours — served by PHP-FPM and nginx
+# from public/. Symfony is the same project type: see symfony/.
+#
+# https://docs.vallic.com/stack-php
+# https://docs.vallic.com/configuration
+version: 1
+type: php
+
+runtime:
+  php: '8.4'
+  memory_limit: 256M
+
+services:
+  # Checked, not obeyed: the database has to be the one the environment was
+  # created with. Valkey starts on the next deploy if it is not running yet.
+  - mariadb: '11.8'
+  - valkey: '8'
+
+build:
+  cache:
+    - vendor
+  steps:
+    - composer install --no-dev --optimize-autoloader
+
+deploy:
+  steps:
+    - 'php bin/migrate.php'
+  on_failure: rollback
+
+# A PHP project has no directory for uploads of its own — there is no
+# framework convention to say where. Declare the one you serve them from, and
+# it outlives every release.
+mounts:
+  - public/uploads
+
+# Nothing is scheduled for a plain PHP project unless you declare it.
+cron:
+  - name: cleanup
+    schedule: '0 3 * * *'
+    command: 'php bin/cleanup.php'
+
+health:
+  path: /health.php
+  timeout: 60

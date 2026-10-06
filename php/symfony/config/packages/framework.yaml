@@ -1,0 +1,17 @@
+# The parts of framework.yaml the platform has an answer for.
+#
+# https://docs.vallic.com/framework-symfony
+framework:
+    # Generated once per environment and never changes: a secret that is never
+    # committed and survives every deploy.
+    secret: '%env(VALLIC_ENTROPY)%'
+
+    # The edge terminates TLS and forwards over plain HTTP, and is the only
+    # thing a request arrives from. Trust it for the scheme, host and client.
+    trusted_proxies: 'REMOTE_ADDR'
+    trusted_headers: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'x-forwarded-port']
+
+    # Sessions in Valkey, so a visitor stays logged in whichever web server
+    # answers. Files would keep them on one machine.
+    session:
+        handler_id: 'redis://%env(REDIS_HOST)%:%env(REDIS_PORT)%'

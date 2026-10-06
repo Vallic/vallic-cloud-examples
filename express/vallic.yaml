@@ -1,0 +1,43 @@
+# An Express application. It serves its own HTTP behind the platform's proxy,
+# which terminates TLS, routes the hostname and compresses responses.
+#
+# https://docs.vallic.com/framework-node
+# https://docs.vallic.com/configuration
+version: 1
+type: nodejs
+
+runtime:
+  node: '24'
+
+services:
+  # Checked, not obeyed: the database has to be the one the environment was
+  # created with. Valkey starts on the next deploy if it is not running yet —
+  # it holds the sessions, so a visitor stays logged in on any web server.
+  - postgres: '18'
+  - valkey: '8'
+
+build:
+  # npm's download cache is provided. node_modules is the runtime, so the
+  # release keeps it — pruned to what production needs.
+  steps:
+    - npm ci
+    - npm prune --omit=dev
+
+# `npm start` is the default; written here so the file says what runs.
+start: npm start
+port: 3000
+
+deploy:
+  steps:
+    - 'npm run migrate'
+  on_failure: rollback
+
+health:
+  path: /healthz
+  timeout: 60
+
+# Express sessions are signed with this. Set it as a secret variable in the
+# console; the deploy refuses until it is there.
+env:
+  required:
+    - SESSION_SECRET

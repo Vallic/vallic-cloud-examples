@@ -1,0 +1,52 @@
+# A Drupal site with an extra machine beside it: `voyager`, running a
+# background remover and an OCR engine from .vallic/extra/voyager.yml.
+#
+# The extra is bought in the configurator or on the Resources tab; this file
+# says what the application may reach on it. Slots are handed out in order —
+# pioneer, voyager, galileo, magellan, cassini, juno — so the name here is the
+# one your environment was given.
+#
+# https://docs.vallic.com/extras
+# https://docs.vallic.com/configuration
+version: 1
+type: drupal
+
+runtime:
+  php: '8.4'
+  memory_limit: 512M
+
+services:
+  - mariadb: '11.8'
+  - valkey: '8'
+
+build:
+  steps:
+    - composer install --no-dev --optimize-autoloader
+  cache:
+    - vendor
+    - web/core
+    - web/modules/contrib
+    - web/themes/contrib
+
+deploy:
+  steps:
+    - 'drush deploy'
+  on_failure: rollback
+
+extra:
+  voyager:
+    # What the rest of the environment reaches : what the container listens
+    # on. Reachable ports come from 8000 to 8008. Never write `ports:` in the
+    # compose file — the platform binds these, on the private network only.
+    expose:
+      rembg: 8001:8000
+      easyocr: 8002:8000
+    # Names only; the values are set in the console under Variables, and
+    # reach the voyager machine and no other.
+    env:
+      required:
+        - REMBG_TOKEN
+    # Closed by default: an extra may reach your application's machines and
+    # nothing else. rembg downloads its model on first use, so it needs the
+    # internet — through HTTPS_PROXY, which most tools honour unasked.
+    egress: internet

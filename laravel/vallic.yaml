@@ -1,0 +1,67 @@
+# Laravel 11 or 12. The document root is public/.
+#
+# https://docs.vallic.com/framework-laravel
+# https://docs.vallic.com/configuration
+version: 1
+type: laravel
+
+runtime:
+  php: '8.4'
+
+services:
+  # Checked, not obeyed: the database has to be the one the environment was
+  # created with. Valkey and Node start on the next deploy if not running yet.
+  - mariadb: '11.8'
+  - valkey: '8'
+  # Only for the asset build below; nothing of it runs beside the site.
+  - node: '24'
+
+build:
+  # Composer's and npm's downloads are cached for you. What Composer installs,
+  # and Vite's own cache, are not.
+  cache:
+    - vendor
+    - node_modules/.vite
+  steps:
+    - composer install --no-dev --optimize-autoloader
+    # The PHP image has no npm, so the assets build in the Node image.
+    - name: Assets
+      image: node
+      run: npm ci && npm run build
+
+deploy:
+  steps:
+    # storage/framework is kept outside the release and starts empty, so the
+    # directories your repository ships there are not the ones Laravel sees.
+    - 'mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views'
+    # --force: the machine is non-interactive, and Laravel refuses without it.
+    - 'php artisan migrate --force'
+    # config:cache first, because the others read configuration.
+    - 'php artisan config:cache'
+    - 'php artisan route:cache'
+    - 'php artisan view:cache'
+  on_failure: rollback
+
+# Laravel's own health route.
+health:
+  path: /up
+  timeout: 60
+
+# queue:work as a supervised process, restarted on every deploy.
+workers:
+  - name: queue
+    command: 'php artisan queue:work --sleep=1 --tries=3'
+    replicas: 2
+
+# Every minute, so everyMinute() and dailyAt('13:32') run when they say.
+# Declaring any cron replaces the platform's five-minute schedule:run.
+cron:
+  - name: scheduler
+    schedule: '* * * * *'
+    command: 'php artisan schedule:run'
+
+# Laravel will not start without a key. Set APP_KEY as a secret variable in
+# the console, or derive it from VALLIC_ENTROPY (see README) and drop this.
+env:
+  required:
+    - APP_KEY

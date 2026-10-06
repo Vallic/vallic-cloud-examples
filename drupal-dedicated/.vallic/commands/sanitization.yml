@@ -1,0 +1,17 @@
+# Runs in the application container, in order, right after a database arrives
+# in this environment — copied from another one, or restored from a backup —
+# and before anyone can reach it. The first command to fail stops the rest and
+# fails the task. Never runs on production.
+#
+# https://docs.vallic.com/backup-storage#sanitising-what-arrives
+commands:
+  # Every account's email and password replaced.
+  - 'drush sql:sanitize --yes'
+  # Your own tables that hold people, for example Drupal Commerce's orders:
+  # - 'drush sql:query "UPDATE commerce_order SET mail = CONCAT(order_id, ''@example.test'')"'
+  # The copy's Solr core is its own and starts out of step with the data that
+  # just arrived: mark everything for indexing. The search-index cron in
+  # vallic.yaml works through it.
+  - 'drush search-api:reset-tracker'
+  # Nothing cached from the data that was there before.
+  - 'drush cache:rebuild'

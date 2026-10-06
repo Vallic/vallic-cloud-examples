@@ -1,0 +1,16 @@
+# What runs on the voyager extra. More on what this file may say:
+# ../extras/ and https://docs.vallic.com/extras
+services:
+  rembg:
+    # A placeholder image; name your own, with a version.
+    image: ghcr.io/acme/rembg-api:1.4.0
+    environment:
+      U2NET_HOME: /cache/rembg
+    volumes:
+      # Model weights the container can fetch again. Never backed up.
+      - cache/models/rembg:/cache/rembg
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

@@ -1,0 +1,34 @@
+# A Go binary that serves its own HTTP behind the platform's proxy, which
+# terminates TLS, routes the hostname and compresses responses.
+#
+# https://docs.vallic.com/framework-node
+# https://docs.vallic.com/stack-golang
+# https://docs.vallic.com/configuration
+version: 1
+type: golang
+
+runtime:
+  go: '1.27'
+
+services:
+  # Checked, not obeyed: the database has to be the one the environment was
+  # created with.
+  - postgres: '18'
+
+build:
+  # Go's module and build caches are provided. The release is the binaries,
+  # so there is nothing to prune.
+  steps:
+    - go build -o bin/server ./cmd/server
+    - go build -o bin/sanitize ./cmd/sanitize
+
+# Required for Go: nothing can guess that your binary is bin/server, and
+# without it the container starts and immediately exits.
+start: bin/server
+# The default for Go. Setting it moves both the PORT your app is given and the
+# port the platform reaches.
+port: 8080
+
+health:
+  path: /healthz
+  timeout: 60

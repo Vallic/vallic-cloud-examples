@@ -1,0 +1,45 @@
+# A Next.js application, served by `next start` behind the platform's proxy,
+# which terminates TLS, routes the hostname and compresses responses.
+#
+# https://docs.vallic.com/stack-nodejs
+# https://docs.vallic.com/configuration
+version: 1
+type: nodejs
+
+runtime:
+  node: '24'
+
+services:
+  # Checked, not obeyed: the database has to be the one the environment was
+  # created with.
+  - postgres: '18'
+
+build:
+  # npm's download cache is provided. .next/cache is the bundler's own, which
+  # is what makes the second build of an unchanged app quick.
+  cache:
+    - .next/cache
+  steps:
+    - name: Dependencies
+      run: npm ci
+    - name: Build
+      run: npm run build
+    # node_modules is the runtime, so the release keeps it — pruned to what
+    # production needs.
+    - name: Production dependencies only
+      run: npm prune --omit=dev
+
+# Both are the defaults: `npm start` is `next start`, which listens on PORT.
+# Written here so the file says what runs. The platform sets HOSTNAME to
+# 0.0.0.0, which Next.js binds, and NODE_ENV to production.
+start: npm start
+port: 3000
+
+deploy:
+  steps:
+    - 'npm run migrate'
+  on_failure: rollback
+
+health:
+  path: /healthz
+  timeout: 60

@@ -1,0 +1,14 @@
+# Runs in the application container, in order, right after a database arrives
+# in this environment — copied from another one, or restored from a backup —
+# and before anyone can reach it. The first command to fail stops the rest and
+# fails the task. Never runs on production.
+#
+# Without this file nothing is scrubbed: production's data lands as it was.
+#
+# https://docs.vallic.com/backup-storage#sanitising-what-arrives
+commands:
+  # The tables that hold people, in app/Console/Commands/Sanitize.php.
+  - 'php artisan app:sanitize'
+  # Nothing cached from the data that was there before. The next deploy
+  # builds the config and route caches again.
+  - 'php artisan optimize:clear'

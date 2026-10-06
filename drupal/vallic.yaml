@@ -1,0 +1,52 @@
+# Drupal 10 or 11, in the drupal/recommended-project layout: composer.json at
+# the top, Drupal under web/. The document root is web/.
+#
+# https://docs.vallic.com/framework-drupal
+# https://docs.vallic.com/configuration
+version: 1
+type: drupal
+
+runtime:
+  php: '8.4'
+  # Installing a profile is the heaviest thing a Drupal site ever does, and
+  # 256M is where an install dies halfway. Clamped to what your plan allows.
+  memory_limit: 512M
+
+services:
+  # Checked, not obeyed: the database has to be the one the environment was
+  # created with. A cache or search engine named here starts on the next deploy.
+  - mariadb: '11.8'
+  - valkey: '8'
+
+build:
+  steps:
+    - name: PHP dependencies
+      run: composer install --no-dev --optimize-autoloader
+  # What Composer installs, kept for the next build, which then fetches only
+  # what changed. Composer's download cache is provided without asking.
+  cache:
+    - vendor
+    - web/core
+    - web/modules/contrib
+    - web/themes/contrib
+    - web/profiles/contrib
+    - web/libraries
+
+deploy:
+  steps:
+    # Database updates, config import and cache rebuild, in the order Drupal
+    # wants them. Runs on the machine after the release is live — a build has
+    # no database.
+    - 'drush deploy'
+  on_failure: rollback
+
+# Declaring any cron replaces the platform's hourly `drush cron`, so it is
+# named here — every fifteen minutes.
+cron:
+  - name: drupal
+    schedule: '*/15 * * * *'
+    command: 'drush cron'
+
+health:
+  path: /
+  timeout: 60

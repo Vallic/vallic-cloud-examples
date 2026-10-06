@@ -1,0 +1,45 @@
+# A Node.js application that serves its own HTTP. It replaces PHP-FPM and
+# nginx rather than joining them; the platform's proxy in front terminates TLS,
+# routes the hostname and compresses responses.
+#
+# https://docs.vallic.com/framework-node
+# https://docs.vallic.com/configuration
+version: 1
+type: nodejs
+
+runtime:
+  node: '24'
+
+services:
+  # Checked, not obeyed: the database has to be the one the environment was
+  # created with. Valkey starts on the next deploy if it is not running yet.
+  - postgres: '18'
+  - valkey: '8'
+
+build:
+  # npm's download cache is provided. node_modules is the runtime, so the
+  # release keeps it — pruned to what production needs.
+  steps:
+    - npm ci
+    - npm prune --omit=dev
+
+# Left out, the image runs `npm start`. Written here so the file says what runs.
+start: node src/server.js
+# The default for Node. Setting it moves both the PORT your app is given and
+# the port the platform reaches.
+port: 3000
+
+deploy:
+  steps:
+    - 'npm run migrate'
+  on_failure: rollback
+
+# Nothing is scheduled for a Node project unless you declare it.
+cron:
+  - name: digest
+    schedule: '0 * * * *'
+    command: 'node src/jobs/digest.js'
+
+health:
+  path: /healthz
+  timeout: 60

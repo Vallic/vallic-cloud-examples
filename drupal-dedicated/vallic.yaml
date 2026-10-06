@@ -1,0 +1,107 @@
+# A large Drupal site on the Dedicated shape: every service on a machine of its
+# own, at least two web servers behind a load balancer, worker machines for the
+# background work, and an extra machine for tools of its own.
+#
+# How many web servers and workers, and how big each machine is, are chosen in
+# the console — infrastructure is bought, not committed. This file says what
+# the application needs on them. See README.md for the machines it expects.
+#
+# https://docs.vallic.com/shapes
+# https://docs.vallic.com/framework-drupal
+# https://docs.vallic.com/configuration
+version: 1
+type: drupal
+
+runtime:
+  php: '8.4'
+  # Clamped to what the plan was sold; 1024M needs 8 GB web servers.
+  memory_limit: 1024M
+
+services:
+  # Checked, not obeyed: the database has to be the one the environment was
+  # created with. Each of the others starts on the next deploy if it is not
+  # running — on Dedicated, on the machine bought for it.
+  - mariadb: '11.8'
+  # The cache. settings.vallic.php moves Drupal's cache bins here.
+  - redis: '8.6'
+  - solr:
+      version: '9'
+      environment:
+        SOLR_HEAP: 2g
+  # The message broker the queue workers below consume.
+  - rabbitmq: '4.3'
+  # Vinyl Cache (Varnish), in front of the web servers.
+  - vinyl:
+      version: '8.0'
+      environment:
+        VARNISHD_PARAM_DEFAULT_TTL: '300'
+  # Only for the theme build; nothing of it runs beside the site.
+  - node: '24'
+
+build:
+  # What Composer installs, kept for the next build. Composer's and npm's
+  # downloads are cached for you.
+  cache:
+    - vendor
+    - web/core
+    - web/modules/contrib
+    - web/themes/contrib
+    - web/profiles/contrib
+    - web/libraries
+  steps:
+    - name: PHP dependencies
+      run: composer install --no-dev --optimize-autoloader
+    # The PHP image has no npm, so the theme builds in the Node image.
+    - name: Theme
+      image: node
+      run: npm ci --prefix web/themes/custom/acme && npm run build --prefix web/themes/custom/acme
+
+deploy:
+  steps:
+    # Database updates, config import and cache rebuild. Runs once, on one web
+    # server, after the release is live.
+    - 'drush deploy'
+  on_failure: rollback
+
+# Long-running processes, supervised and restarted on every deploy. Room for
+# one different worker per worker machine — with none, one per web server.
+# replicas run copies of the same worker on the machines it has.
+workers:
+  # Imports arriving through RabbitMQ (settings.overrides.php routes the queue).
+  - name: imports
+    command: 'drush rabbitmq:worker acme_import'
+    replicas: 4
+  # Drupal's own database queue for heavy jobs; exits when it is empty and is
+  # started again.
+  - name: heavy
+    command: 'drush queue:run acme_heavy --time-limit=0'
+    replicas: 2
+
+# On a worker machine when there is one; never twice at once however many
+# machines there are. Declaring any replaces the platform's hourly drush cron.
+cron:
+  - name: drupal
+    schedule: '*/5 * * * *'
+    command: 'drush cron'
+  - name: search-index
+    schedule: '*/10 * * * *'
+    command: 'drush search-api:index --batch-size=200'
+
+# Writable directories beyond Drupal's public and private files.
+mounts:
+  - private/exports
+
+health:
+  path: /user/login
+  timeout: 120
+
+extra:
+  voyager:
+    # 8001 on the private network reaches the container's 8000.
+    expose:
+      rembg: 8001:8000
+    env:
+      required:
+        - REMBG_TOKEN
+    # rembg downloads its model on first use.
+    egress: internet

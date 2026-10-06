@@ -1,0 +1,15 @@
+# Runs in the application container, in order, right after a database arrives
+# in this environment — copied from another one, or restored from a backup —
+# and before anyone can reach it. The first command to fail stops the rest and
+# fails the task. Never runs on production.
+#
+# Without this file nothing is scrubbed: production's data lands as it was.
+# The table and column names are an example; use your own.
+#
+# https://docs.vallic.com/backup-storage#sanitising-what-arrives
+commands:
+  - 'php bin/console dbal:run-sql "UPDATE app_user SET email = CONCAT(''user'', id, ''@example.test'')"'
+  # Sessions live in Valkey (framework.yaml), not in the database copied in,
+  # so there is no sessions table to clear. A restore clears no cache for you
+  # on a PHP project, though.
+  - 'php bin/console cache:pool:clear cache.global_clearer'

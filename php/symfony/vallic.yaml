@@ -1,0 +1,52 @@
+# Symfony is a PHP project here, served from public/. `type: symfony` and
+# `type: php` are both accepted and mean the same.
+#
+# https://docs.vallic.com/framework-symfony
+# https://docs.vallic.com/configuration
+version: 1
+type: symfony
+
+runtime:
+  php: '8.4'
+
+services:
+  # Checked, not obeyed: the database has to be the one the environment was
+  # created with. Valkey and Node start on the next deploy if not running yet.
+  - postgres: '18'
+  - valkey: '8'
+  # Only for the asset build below; nothing of it runs beside the site.
+  - node: '24'
+
+build:
+  # Composer's and npm's downloads are cached for you. What Composer installs,
+  # and Webpack Encore's own cache, are not.
+  cache:
+    - vendor
+    - node_modules/.cache
+  steps:
+    - composer install --no-dev --optimize-autoloader
+    # The PHP image has no npm, so the assets build in the Node image.
+    - name: Assets
+      image: node
+      run: npm ci && npm run build
+
+deploy:
+  steps:
+    # --allow-no-migration: a deploy with nothing to migrate is a success, not
+    # a non-zero exit that rolls the release back.
+    - 'php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration'
+    # Only works once the cache lives in VALLIC_PRIVATE_DIR — see src/Kernel.php.
+    - 'php bin/console cache:clear --no-warmup'
+    - 'php bin/console cache:warmup'
+  on_failure: rollback
+
+# Exits cleanly every hour and is started again: a consumer that runs forever
+# slowly leaks the memory of everything it has handled.
+workers:
+  - name: messenger
+    command: 'php bin/console messenger:consume async --time-limit=3600'
+    replicas: 2
+
+# Uploads you serve need a directory of their own; it outlives every release.
+mounts:
+  - public/uploads

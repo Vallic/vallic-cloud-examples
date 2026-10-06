@@ -1,0 +1,16 @@
+# Runs in the application container, in order, right after a database arrives
+# in this environment — copied from another one, or restored from a backup —
+# and before anyone can reach it. The first command to fail stops the rest and
+# fails the task. Never runs on production.
+#
+# Without this file nothing is scrubbed: production's data lands as it was.
+#
+# https://docs.vallic.com/backup-storage#sanitising-what-arrives
+commands:
+  # Every account's email and password replaced, user 1 included.
+  - 'drush sql:sanitize --yes'
+  # Your own tables that hold people. Drupal Commerce, for example:
+  # - 'drush sql:query "UPDATE commerce_order SET mail = CONCAT(order_id, ''@example.test'')"'
+  # - 'drush sql:query "TRUNCATE commerce_payment_method"'
+  # Nothing cached from the data that was there before.
+  - 'drush cache:rebuild'

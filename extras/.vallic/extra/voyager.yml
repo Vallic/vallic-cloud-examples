@@ -1,0 +1,44 @@
+# What runs on the voyager extra — an ordinary compose file, yours.
+#
+# Allowed: image, restart, environment, volumes, command, entrypoint,
+# healthcheck, depends_on, user, working_dir, stop_grace_period, tmpfs,
+# shm_size, ulimits, init, and x- keys. Refused: ports, build, networks,
+# env_file, secrets, privileged, deploy, container_name, labels — the
+# platform owns those. Up to 20 services, 64 KB.
+#
+# https://docs.vallic.com/extras
+services:
+  rembg:
+    # A published image and a version. No tag, or :latest, is refused: a tag
+    # that moves changes behaviour with nothing in your log to say why. The
+    # images here are placeholders — name your own.
+    image: ghcr.io/acme/rembg-api:1.4.0
+    # Your own entrypoint, from .vallic/extra/voyager/rembg/, read-only.
+    command: ["python", "/app/entrypoint.py"]
+    environment:
+      U2NET_HOME: /cache/rembg
+    volumes:
+      # code/ — files from .vallic/extra/voyager/, out of the release you
+      # deployed. Always read-only.
+      - code/rembg:/app
+      # cache/ — anything the container can fetch again. Never backed up.
+      - cache/models/rembg:/cache/rembg
+      # keep/ — anything you would be sorry to lose. Backed up.
+      - keep/results:/var/results
+    # Without a healthcheck a container is never reported healthy: nothing
+    # was asked.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  easyocr:
+    image: ghcr.io/acme/easyocr-api:3.2.0
+    volumes:
+      - cache/models/easyocr:/cache/easyocr
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

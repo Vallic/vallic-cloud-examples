@@ -1,0 +1,52 @@
+# A Drupal site with Vinyl Cache (Varnish) in front of it.
+#
+# The service's id is `vinyl` — the name of the image it runs. It sits in front
+# of nginx for a PHP application, or in front of the application itself for
+# Node.js or Go. The rules in .vallic/varnish/ add to its cache policy.
+#
+# https://docs.vallic.com/stack-vinyl
+# https://docs.vallic.com/framework-drupal
+version: 1
+type: drupal
+
+runtime:
+  php: '8.4'
+  memory_limit: 512M
+
+services:
+  # Checked, not obeyed: the database has to be the one the environment was
+  # created with. The others start on the next deploy if not running yet.
+  - mariadb: '11.8'
+  - valkey: '8'
+  - vinyl:
+      version: '8.0'
+      # The only settings Vinyl Cache takes from a manifest; leave out what you
+      # do not need. Without a Cache-Control max-age a page is kept for two
+      # minutes; this makes it five.
+      environment:
+        VARNISHD_PARAM_DEFAULT_TTL: '300'
+
+build:
+  steps:
+    - composer install --no-dev --optimize-autoloader
+  cache:
+    - vendor
+    - web/core
+    - web/modules/contrib
+    - web/themes/contrib
+    - web/profiles/contrib
+    - web/libraries
+
+deploy:
+  steps:
+    - 'drush deploy'
+  on_failure: rollback
+
+cron:
+  - name: drupal
+    schedule: '*/15 * * * *'
+    command: 'drush cron'
+
+health:
+  path: /
+  timeout: 60
